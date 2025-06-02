@@ -1,10 +1,16 @@
 % main.m
-% Entry point for the EMG Gesture Recognition Project
+clc;
+clear;
+close all;
 
-clear; clc; close all;
+% Set current folder to the root of the project
+projectRoot = fileparts(mfilename('fullpath'));
+cd(projectRoot);  % <-- Important for MATLAB Online
 
-% Add necessary paths
-addpath('functions', 'models', 'gui');
+% Add paths to subfolders
+addpath(fullfile(projectRoot, 'functions'));
+addpath(fullfile(projectRoot, 'gui'));
+addpath(fullfile(projectRoot, 'models'));
+addpath(fullfile(projectRoot, 'data'));
 
-% Start the GUI
-gestureRecognitionGUI;
+gestureRecognitionGUI();  % Start GUI
