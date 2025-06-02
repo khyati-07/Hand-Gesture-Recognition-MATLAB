@@ -1,13 +1,10 @@
-% predict_gesture.m
-% Predict gesture from EMG data using the trained model
+function prediction = predict_gesture(sample)
+    if ~isfile('models/trained_model.mat')
+        error('Trained model not found. Run training first.');
+    end
 
-function predicted_label = predict_gesture(emg_sample)
-    % Load the trained model
     load('models/trained_model.mat', 'model');
-    
-    % Feature extraction: Mean Absolute Value (MAV)
-    mav = mean(abs(emg_sample));
-    
-    % Predict gesture
-    predicted_label = predict(model, mav);
+
+    feat = extract_features(sample);
+    prediction = predict(model, feat);
 end
