@@ -1,10 +1,24 @@
-% train_model.m
-% Train a classifier using extracted features
+function train_model()
+    % Build path relative to root
+    matFile = fullfile('data', 'S1_A1_E1.mat');
 
-function model = train_model(features, labels)
-    % Train a multiclass SVM classifier
-    model = fitcecoc(features, labels);
+    if ~isfile(matFile)
+        error('Could not find EMG file at: %s', matFile);
+    end
+
+    data = load(matFile);
     
-    % Save the trained model
-    save('models/trained_model.mat', 'model');
+    % Use your real variable names here
+    X = data.emg;         
+    y = data.restimulus;  
+
+    features = extract_features(X);
+    model = fitcecoc(features, y);
+
+    if ~exist('models', 'dir')
+        mkdir('models');
+    end
+
+    save(fullfile('models', 'trained_model.mat'), 'model');
+    disp('Model trained and saved.');
 end
