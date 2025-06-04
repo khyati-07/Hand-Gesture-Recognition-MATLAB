@@ -1,0 +1,13 @@
+function emg_filtered = preprocess_emg(emg, fs)
+    % Bandpass 20–450 Hz + Notch at 50/60 Hz
+    bpFilt = designfilt('bandpassiir','FilterOrder',4, ...
+                        'HalfPowerFrequency1',20,'HalfPowerFrequency2',450, ...
+                        'SampleRate',fs);
+    emg_filtered = filtfilt(bpFilt, emg);
+
+    % Notch Filter at 50 Hz
+    d = designfilt('bandstopiir','FilterOrder',2, ...
+                   'HalfPowerFrequency1',49,'HalfPowerFrequency2',51, ...
+                   'SampleRate',fs);
+    emg_filtered = filtfilt(d, emg_filtered);
+end
