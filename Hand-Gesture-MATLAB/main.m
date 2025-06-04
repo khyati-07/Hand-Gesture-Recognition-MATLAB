@@ -1,11 +1,10 @@
-% main.m
 clc;
 clear;
 close all;
 
 % Set current folder to the root of the project
 projectRoot = fileparts(mfilename('fullpath'));
-cd(projectRoot);  % <-- Important for MATLAB Online
+cd(projectRoot);
 
 % Add paths to subfolders
 addpath(fullfile(projectRoot, 'functions'));
