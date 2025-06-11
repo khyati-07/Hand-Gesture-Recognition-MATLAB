@@ -1,20 +1,39 @@
 function gestureRecognitionGUI()
-    f = figure('Name', 'EMG Gesture Recognition', 'Position', [500 300 600 400]);
+    f = figure('Name', 'EMG Gesture Recognition', 'Position', [500 300 700 450], ...
+        'Color', [0.95 0.95 1]);
 
-    % Buttons (positions reordered)
-    uicontrol(f, 'Style', 'pushbutton', 'String', 'Train Model', ...
-        'Position', [50 300 120 40], 'Callback', @train_model_callback);
+    % Title
+    uicontrol(f, 'Style', 'text', 'String', 'EMG-Based Gesture Recognition', ...
+        'Position', [200 390 300 40], 'FontSize', 14, 'FontWeight', 'bold', ...
+        'BackgroundColor', [0.8 0.85 1]);
 
-    uicontrol(f, 'Style', 'pushbutton', 'String', 'Load Sample', ...
-        'Position', [50 240 120 40], 'Callback', @load_sample);
+    % Control Panel Box
+    panel = uipanel(f, 'Title', 'Controls', 'FontSize', 11, ...
+        'Position', [0.05 0.1 0.25 0.75]);
 
-    uicontrol(f, 'Style', 'pushbutton', 'String', 'Simulate', ...
-        'Position', [50 180 120 40], 'Callback', @simulate_callback);
+    % Buttons
+    uicontrol(panel, 'Style', 'pushbutton', 'String', 'Train Model', ...
+        'Units', 'normalized', 'Position', [0.2 0.75 0.6 0.15], ...
+        'FontSize', 11, 'BackgroundColor', [0.6 0.8 1], 'Callback', @train_model_callback);
 
-    % Larger text area for output
-    txt = uicontrol(f, 'Style', 'text', 'Position', [200 50 370 300], ...
+    uicontrol(panel, 'Style', 'pushbutton', 'String', 'Load Sample', ...
+        'Units', 'normalized', 'Position', [0.2 0.5 0.6 0.15], ...
+        'FontSize', 11, 'BackgroundColor', [0.7 1 0.7], 'Callback', @load_sample);
+
+    uicontrol(panel, 'Style', 'pushbutton', 'String', 'Simulate', ...
+        'Units', 'normalized', 'Position', [0.2 0.25 0.6 0.15], ...
+        'FontSize', 11, 'BackgroundColor', [1 0.7 0.7], 'Callback', @simulate_callback);
+
+    % Output text area
+    uicontrol(f, 'Style', 'text', 'String', 'Output:', ...
+        'Position', [250 330 60 20], 'FontWeight', 'bold', ...
+        'BackgroundColor', [0.95 0.95 1]);
+
+    txt = uicontrol(f, 'Style', 'text', 'Position', [250 140 420 180], ...
         'HorizontalAlignment', 'left', 'FontSize', 10, ...
-        'BackgroundColor', 'white', 'Max', 10);
+        'BackgroundColor', 'white', 'Max', 2);
+
+    % ==== Nested Functions ====
 
     function load_sample(~, ~)
         [file, path] = uigetfile('data/*.mat');
@@ -27,7 +46,6 @@ function gestureRecognitionGUI()
     end
 
     function train_model_callback(~, ~)
-        % Use only file split
         split_type = 'byfile';
         train_model(split_type);
         set(txt, 'String', sprintf('Model Trained using: %s', split_type));
@@ -44,33 +62,66 @@ function gestureRecognitionGUI()
 
         emg = preprocess_emg(data.emg, fs);
         labels = data.restimulus;
-
         load('models/trained_model.mat', 'model');
 
         window = round(0.2 * fs);
         step = round(0.1 * fs);
-        output = '';
+
+        if ~exist('results', 'dir')
+            mkdir('results');
+        end
+        result_file = fullfile('results', 'simulation_results.txt');
+        fid = fopen(result_file, 'w');
+
+        output_lines = {};
+        max_lines = 15;
+
         for t = 1:step:(size(emg, 1) - window)
             true_label = mode(labels(t:t+window-1));
             if true_label == 0, continue; end
+
             feats = extract_features(emg(t:t+window-1, :));
             pred_label = predict(model, feats);
+
             true_gesture = label_to_gesture(true_label);
             pred_gesture = label_to_gesture(pred_label);
-            output = sprintf('True: %d (%s) | Pred: %d (%s)\n%s', ...
-                true_label, true_gesture, pred_label, pred_gesture, output);
-            set(txt, 'String', output);
-            pause(0.1);
+
+            line = sprintf('True: %d (%s) | Pred: %d (%s)', ...
+                true_label, true_gesture, pred_label, pred_gesture);
+
+            output_lines{end+1} = line; %#ok<AGROW>
+            fprintf(fid, '%s\n', line);
+
+            recent_lines = output_lines(max(1, end - max_lines + 1):end);
+            set(txt, 'String', sprintf('%s', strjoin(recent_lines, '\n')));
+            pause(0.05);
+        end
+
+        fclose(fid);
+        output_lines{end+1} = sprintf('\nSaved to: %s', result_file);
+
+        if exist('models/test_data.mat', 'file')
+            load('models/test_data.mat', 'Ytest', 'Ypred', 'cm', 'acc');
+
+            output_lines{end+1} = sprintf('Training Accuracy: %.2f%%', acc);
+            set(txt, 'String', sprintf('%s', strjoin(output_lines(max(1, end - max_lines + 1):end), '\n')));
+
+            show_confusion(Ytest, Ypred);  % Launch confusion matrix GUI
+             fprintf('\nFinal Accuracy : %.2f%%\n', acc);
+        else
+            set(txt, 'String', sprintf('%s', strjoin(output_lines(max(1, end - max_lines + 1):end), '\n')));
         end
     end
-end
+end  
 
-% Helper function to map labels to gesture names
+
 function name = label_to_gesture(label)
-    gestures = { ...
-        'Rest', 'Thumb Flex', 'Index Flex', 'Middle Flex', ...
-        'Ring Flex', 'Little Flex', 'Wrist Ext', 'Wrist Flex', ...
-        'Hand Open', 'Hand Close', 'Pinch', 'Grasp' ...
+    gestures = {
+        'Rest', 'Thumb Flex', 'Index Flex', 'Middle Flex', 'Ring Flex', ...
+        'Little Flex', 'Wrist Ext', 'Wrist Flex', 'Hand Open', 'Hand Close', ...
+        'Pinch', 'Grasp', 'Point', 'Wave In', 'Wave Out', 'Thumb Up', ...
+        'Thumb Down', 'OK Sign', 'Peace Sign', 'Rock', ...
+        'Stop', 'Fist Bump', 'Call Me'
     };
     if label >= 1 && label <= numel(gestures)
         name = gestures{label};
