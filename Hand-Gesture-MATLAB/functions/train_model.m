@@ -29,11 +29,9 @@ function train_model(split_type)
 
     % Split based on choice
     if strcmp(split_type, 'byfile')
-        % First two files = train, third = test
         train_files = data_files(1:2);
         test_file = data_files(3);
 
-        % Reload and extract test set
         data_test = load(fullfile('data', test_file.name));
         emg_test = preprocess_emg(data_test.emg, fs);
         labels_test = data_test.restimulus;
@@ -48,10 +46,8 @@ function train_model(split_type)
             Ytest = [Ytest; label];
         end
 
-        % Use all earlier X, Y as training
         model = fitcensemble(X, Y);
     else
-        % Random split
         cv = cvpartition(Y, 'HoldOut', 0.2);
         Xtrain = X(training(cv), :); Ytrain = Y(training(cv));
         Xtest = X(test(cv), :);     Ytest = Y(test(cv));
@@ -63,14 +59,9 @@ function train_model(split_type)
     acc = sum(Ypred == Ytest) / numel(Ytest) * 100;
     cm = confusionmat(Ytest, Ypred);
 
-    fprintf('Accuracy: %.2f%%\n', acc);
+    % Just save results for later display
     save('models/trained_model.mat', 'model');
-    save('models/test_data.mat', 'Xtest', 'Ytest', 'Ypred', 'cm');
+    save('models/test_data.mat', 'Xtest', 'Ytest', 'Ypred', 'cm', 'acc');
 
-    if acc < 90
-        warning('Accuracy below 90%%. Consider tuning model or adding features.');
-    end
-
-    % Optional: visualize confusion
-    show_confusion(Ytest, Ypred);
+    % Don't show anything here!
 end
