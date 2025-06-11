@@ -42,6 +42,7 @@ function gestureRecognitionGUI()
         end
         data = load(fullfile(path, file));
         assignin('base', 'current_data', data);
+        assignin('base', 'current_filename', file);  % Save file name
         set(txt, 'String', sprintf('Loaded: %s', file));
     end
 
@@ -70,11 +71,24 @@ function gestureRecognitionGUI()
         if ~exist('results', 'dir')
             mkdir('results');
         end
-        result_file = fullfile('results', 'simulation_results.txt');
+
+        % Use uploaded sample file name to generate result filename
+        if evalin('base', 'exist(''current_filename'', ''var'')')
+            loaded_filename = evalin('base', 'current_filename');
+            [~, name, ~] = fileparts(loaded_filename);
+            result_filename = sprintf('simulation_results_%s.txt', name);
+        else
+            result_filename = 'simulation_results_unknown.txt';
+        end
+        result_file = fullfile('results', result_filename);
+
         fid = fopen(result_file, 'w');
 
         output_lines = {};
         max_lines = 15;
+
+        Ytest = [];
+        Ypred = [];
 
         for t = 1:step:(size(emg, 1) - window)
             true_label = mode(labels(t:t+window-1));
@@ -86,34 +100,34 @@ function gestureRecognitionGUI()
             true_gesture = label_to_gesture(true_label);
             pred_gesture = label_to_gesture(pred_label);
 
+            Ytest(end+1) = true_label; %#ok<AGROW>
+            Ypred(end+1) = pred_label; %#ok<AGROW>
+
             line = sprintf('True: %d (%s) | Pred: %d (%s)', ...
                 true_label, true_gesture, pred_label, pred_gesture);
 
-            output_lines{end+1} = line; %#ok<AGROW>
+            output_lines{end+1} = line;  %#ok<AGROW>
             fprintf(fid, '%s\n', line);
 
             recent_lines = output_lines(max(1, end - max_lines + 1):end);
             set(txt, 'String', sprintf('%s', strjoin(recent_lines, '\n')));
             pause(0.05);
         end
-
         fclose(fid);
-        output_lines{end+1} = sprintf('\nSaved to: %s', result_file);
 
-        if exist('models/test_data.mat', 'file')
-            load('models/test_data.mat', 'Ytest', 'Ypred', 'cm', 'acc');
+        acc = sum(Ytest == Ypred) / numel(Ytest) * 100;
+        cm = confusionmat(Ytest, Ypred);
 
-            output_lines{end+1} = sprintf('Training Accuracy: %.2f%%', acc);
-            set(txt, 'String', sprintf('%s', strjoin(output_lines(max(1, end - max_lines + 1):end), '\n')));
+        fprintf('\n========= Simulation Summary =========\n');
+        fprintf('Accuracy: %.2f%%\n', acc);
 
-            show_confusion(Ytest, Ypred);  % Launch confusion matrix GUI
-             fprintf('\nFinal Accuracy : %.2f%%\n', acc);
-        else
-            set(txt, 'String', sprintf('%s', strjoin(output_lines(max(1, end - max_lines + 1):end), '\n')));
-        end
+        show_confusion(Ytest, Ypred);
+        title(sprintf('Confusion Matrix (Accuracy: %.2f%%)', acc));
+
+        output_lines{end+1} = sprintf('Simulation completed.\nResults saved in: %s', result_filename);
+        set(txt, 'String', sprintf('%s', strjoin(output_lines(max(1, end - max_lines + 1):end), '\n')));
     end
-end  
-
+end
 
 function name = label_to_gesture(label)
     gestures = {
